@@ -1,0 +1,7 @@
+sed -i '/^\s*$/d' file  # 删除空格 
+
+sed 's/\(.*\):\(.*\)/\2:\1/' sed  # 冒号 前后反转替换 （就1跟2先匹配再替换嘛）
+
+awk '! a[$0]++' filename # awk 删除非连续重复行
+
+sort chongfu  | uniq   # sort 排序后 用 uniq 删除重复行
