@@ -1,18 +1,18 @@
 #!/bin/bash
-# collect giant03  giant04  giant05  cps log  
+# collect server03  server04  server05  cps log  
 log_name=`date +%Y-%m-%d`".log"
-scp sankuai@giant03:/opt/log/httpd/r.union.meituan.com-access_log.1 /opt/log/collectlog/giant03.log
-scp sankuai@giant04:/opt/log/httpd/r.union.meituan.com-access_log.1 /opt/log/collectlog/giant04.log
-scp sankuai@giant05:/opt/log/httpd/r.union.meituan.com-access_log.1 /opt/log/collectlog/giant05.log
+scp liuzhichao@server03:/opt/log/httpd/r.union.meituan.com-access_log.1 /opt/log/collectlog/server03.log
+scp liuzhichao@server04:/opt/log/httpd/r.union.meituan.com-access_log.1 /opt/log/collectlog/server04.log
+scp liuzhichao@server05:/opt/log/httpd/r.union.meituan.com-access_log.1 /opt/log/collectlog/server05.log
 MYSQL="/usr/bin/mysql"
 USERNAME="root"
 PASSWORD=""
 DB="union"
 cd /opt/log/collectlog/
 #echo `pwd`
-cat giant03.log > $log_name
-cat giant04.log >> $log_name
-cat giant05.log >> $log_name
+cat server03.log > $log_name
+cat server04.log >> $log_name
+cat server05.log >> $log_name
 cat $log_name | grep "/cps/bd" |  awk '\
     BEGIN{
         #sql=sprintf("mysql -u union -p123456 --silent --column-names=false --default-character-set=utf8 --database=union -e ")
@@ -49,5 +49,5 @@ cat $log_name | grep "/cps/bd" |  awk '\
     ' > tmp.sql
 $MYSQL -u $USERNAME --password=$PASSWORD -D $DB < tmp.sql
 rm tmp.sql
-rm giant*
+rm server*
 rm $log_name 
