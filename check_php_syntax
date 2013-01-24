@@ -1,5 +1,6 @@
 #!/bin/bash
 # check php syntax 
+
 if [ $# -lt 1 ];then
     echo 'Usage: ' $0  'directory';
     exit
