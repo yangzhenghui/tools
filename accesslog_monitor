@@ -1,0 +1,91 @@
+#!/bin/bash
+#visits log ,将来源出现 mail/bbs/tieba/forum/thread 等疑似论坛的找出
+#known_user 为已知用户,如果新增白名单可添加到此文件
+scp sankuai@giant03:/opt/log/httpd/r.union.meituan.com-access_log /opt/log/collectlog/giant03.log
+scp sankuai@giant04:/opt/log/httpd/r.union.meituan.com-access_log /opt/log/collectlog/giant04.log
+scp sankuai@giant05:/opt/log/httpd/r.union.meituan.com-access_log /opt/log/collectlog/giant05.log
+log_dir="/opt/log/collectlog/visits.log" 
+cat /opt/log/collectlog/giant03.log > $log_dir
+cat /opt/log/collectlog/giant04.log >> $log_dir
+cat /opt/log/collectlog/giant05.log >> $log_dir
+cd /opt/www/cps.union.meituan.com/tools/cheat_referer_monitor/
+cheat_info=`pwd`"/cheat_info"
+mail_content=`pwd`"/mail_content"
+if [ -s $cheat_info ]; then
+    rm $cheat_info
+fi
+
+if [ ! -f $cheat_info ]; then
+    touch $cheat_info
+fi
+if [ ! -f $log_dir ]; then
+    exit
+fi
+grep "GET" $log_dir | grep "/url/visit" | grep -v "favicon" | \
+    awk '\
+        BEGIN {
+        }
+        $9 ~ "301" && $11 !~ "-" && $11 ~ "(mail|bbs|tieba|forum|thread)" {
+            #跳转链接格式的key为 key=32个字符的格式
+            #将出现可疑来源的次数key放入sum以做统计
+            if(p=index($7, "key")){
+                key=substr($7,p+4, 32);if(key~/^[0-9a-zA-Z]+$/){
+                    ++sum[key];
+                }
+            }
+        }
+        END {
+            for(key in sum){
+                printf("%-10d\t%32s\n" ,sum[key], key)
+            }
+        }
+    ' | sort -k1 -n -r  > $cheat_info
+
+if [ -s $cheat_info ]; then
+    #文件不为空的话读取内容,取得key查询用户名. 
+    cat $cheat_info | awk '\
+        {
+            if($1~/^[1-9]+$/ && $2~/^[a-z0-9A-Z]+$/){
+                summary[$2]+=int($1)
+                next
+            }else{
+                next    
+            }
+        }
+        END {
+            for(key in summary){
+                
+                #50为阀值,可根据情况更改
+                if(summary[key] > 50){
+                    print summary[key], key 
+                }
+            }
+        }
+     ' | sort -k1 -n -r | \
+    awk ' {
+        sql=sprintf("mysql -u database -p password -h localhost --silent --column-names=false --default-character-set=utf8 --database=union -e \"select\\\"%d\\\", w.id as uid, w.uname as user_name, w.realname as real_name from usersite u inner join webuser w on u.uid=w.id where u.sign=\\\"%s\\\"\"", $1, $2)
+        system(sql) 
+    } ' | \
+    awk ' 
+        BEGIN {
+            while((getline<"known_user")>0)
+                known_user[$0]=NR
+            printf("%-10s\t%-10s\t%-25s\n", "total_num", "user_id", "user_name" )  
+        }
+        {
+            #排除已知的合法用户
+            if($3 in known_user || $3 ~ /file/){ 
+                next    
+            }
+            printf("%-10d\t%-10d\t%-25s\n", $1, $2, $3 )  
+        } 
+    ' > $mail_content
+    if [ -s $mail_content ]; then
+        if [ $(head $mail_content | wc -l) -gt 1 ]; then
+        cat $mail_content | mail -s "alert! please check suspicious referer ! [`date "+%Y-%m-%d %H:%I:%S"`]"  lijingping@meituan.com -c liuzhichao@meituan.com
+        fi
+    fi
+fi
+rm $log_dir 
+cd /opt/log/collectlog/
+rm giant*
